@@ -7,44 +7,6 @@ import (
 	"strings"
 	"time"
 )
-
-// 包级变量保存时区（只需加载一次）
-var cstLoc *time.Location
-
-func init() {
-	// 在程序启动时初始化时区
-	var err error
-	if cstLoc, err = time.LoadLocation("Asia/Shanghai"); err != nil {
-		log.Fatalf("[启动失败] 加载时区失败: %v", err)
-	}
-}
-
-func loggingMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
-		lw := &loggingResponseWriter{ResponseWriter: w, statusCode: http.StatusOK}
-
-		defer func() {
-			duration := time.Since(start)
-			clientIP := getClientIP(r)
-			
-			// 使用请求到达时间而非记录时间（更准确）
-			timestamp := start.In(cstLoc).Format("02/Jan/2006:15:04:05 -0700")
-			
-			log.Printf(`%s - - [%s] "%s %s %s" %d %d`,
-				clientIP,
-				timestamp,
-				r.Method,
-				r.URL.RequestURI(),
-				r.Proto,
-				lw.statusCode,
-				duration.Microseconds(),
-			)
-		}()
-
-		next.ServeHTTP(lw, r)
-	})
-}
 // 自定义ResponseWriter用于捕获状态码
 type loggingResponseWriter struct {
 	http.ResponseWriter
@@ -85,6 +47,29 @@ func getIPHandler(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
 		w.Write([]byte(ip))
 	}
+}
+// 日志中间件
+func loggingMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		lw := &loggingResponseWriter{ResponseWriter: w, statusCode: http.StatusOK}
+		defer func() {
+			duration := time.Since(start)
+			clientIP := getClientIP(r)
+			timestamp := start.UTC().Add(8 * time.Hour).Format("02/Jan/2006:15:04:05 -0700")
+			
+			log.Printf(`%s - - [%s] "%s %s %s" %d %d`,
+				clientIP,
+				timestamp,
+				r.Method,
+				r.URL.RequestURI(),
+				r.Proto,
+				lw.statusCode,
+				duration.Microseconds(),
+			)
+		}()
+		next.ServeHTTP(lw, r)
+	})
 }
 
 func getClientIP(r *http.Request) string {
