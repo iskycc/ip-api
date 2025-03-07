@@ -9,7 +9,7 @@ import (
 
 func main() {
 	http.HandleFunc("/", getIPHandler)
-	http.ListenAndServe(":8080", nil)
+	http.ListenAndServe(":18125", nil)
 }
 
 func getIPHandler(w http.ResponseWriter, r *http.Request) {
