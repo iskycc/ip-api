@@ -1,13 +1,14 @@
 # 构建阶段
 FROM golang:1.21-alpine AS builder
 
-WORKDIR /app
-COPY . .
-
 # 安装时区数据
 RUN apk add --no-cache tzdata
 # 设置环境变量（可选但推荐）
 ENV TZ=Asia/Shanghai
+
+WORKDIR /app
+COPY . .
+COPY --from=debian:latest /usr/share/zoneinfo /usr/share/zoneinfo
 
 # 下载依赖（如果使用go modules）
 RUN go mod download
