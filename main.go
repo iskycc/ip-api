@@ -73,20 +73,24 @@ func loggingMiddleware(next http.Handler) http.Handler {
 }
 
 func getClientIP(r *http.Request) string {
-	// 检查代理头（适用于反向代理情况）
 	forwarded := r.Header.Get("X-Forwarded-For")
 	if forwarded != "" {
-		// 可能有多个IP，取第一个
 		ips := strings.Split(forwarded, ", ")
 		if len(ips) > 0 {
-			return strings.Split(ips[0], ":")[0] // 去掉端口号
+			// 修复点：使用标准库处理IP和端口
+			ipPort := strings.TrimSpace(ips[0])
+			ipPart, _, err := net.SplitHostPort(ipPort)
+			if err == nil {
+				return ipPart
+			}
+			// 如果SplitHostPort失败，说明可能没有端口号，直接返回
+			return ipPort
 		}
 	}
 
-	// 直接连接的情况
 	ip, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
-		return r.RemoteAddr // 如果分割失败返回原始值
+		return r.RemoteAddr
 	}
 	return ip
 }
