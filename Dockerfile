@@ -8,16 +8,16 @@ COPY . .
 RUN go mod download
 
 # 构建可执行文件
-RUN CGO_ENABLED=0 GOOS=linux go build -o /ipapi
+RUN CGO_ENABLED=0 GOOS=linux go build -o /ip-api
 
 # 运行时阶段
 FROM alpine:3.19
 
 WORKDIR /app
-COPY --from=builder /ipapi /app/ipapi
+COPY --from=builder /ip-api /app/ip-api
 
 # 暴露端口
-EXPOSE 8080
+EXPOSE 18125
 
 # 启动命令
-CMD ["/app/ipapi"]
+CMD ["/app/ip-api"]
