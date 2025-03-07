@@ -24,13 +24,22 @@ func main() {
 }
 // 日志中间件
 func loggingMiddleware(next http.Handler) http.Handler {
+	// 提前加载时区（只需一次）
+	loc, err := time.LoadLocation("Asia/Shanghai")
+	if err != nil {
+		log.Fatalf("加载时区失败: %v", err)
+	}
+
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		lw := &loggingResponseWriter{ResponseWriter: w, statusCode: http.StatusOK}
+
 		defer func() {
 			duration := time.Since(start)
 			clientIP := getClientIP(r)
-			timestamp := time.Now().Format("02/Jan/2006:15:04:05 -0700")
+			
+			// 使用In()方法转换时区
+			timestamp := time.Now().In(loc).Format("02/Jan/2006:15:04:05 -0700")
 			
 			log.Printf(`%s - - [%s] "%s %s %s" %d %d`,
 				clientIP,
@@ -42,6 +51,7 @@ func loggingMiddleware(next http.Handler) http.Handler {
 				duration.Microseconds(),
 			)
 		}()
+
 		next.ServeHTTP(lw, r)
 	})
 }
