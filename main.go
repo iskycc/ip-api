@@ -7,29 +7,19 @@ import (
 	"strings"
 	"time"
 )
-// 自定义ResponseWriter用于捕获状态码
-type loggingResponseWriter struct {
-	http.ResponseWriter
-	statusCode int
-}
-func (lw *loggingResponseWriter) WriteHeader(code int) {
-	lw.statusCode = code
-	lw.ResponseWriter.WriteHeader(code)
-}
-func main() {
-	addr := ":18125"
-	log.Printf("Starting server on %s", addr)
-	http.Handle("/", loggingMiddleware(http.HandlerFunc(getIPHandler)))
-	log.Fatal(http.ListenAndServe(addr, nil))
-}
-// 日志中间件
-func loggingMiddleware(next http.Handler) http.Handler {
-	// 提前加载时区（只需一次）
-	loc, err := time.LoadLocation("Asia/Shanghai")
-	if err != nil {
-		log.Fatalf("加载时区失败: %v", err)
-	}
 
+// 包级变量保存时区（只需加载一次）
+var cstLoc *time.Location
+
+func init() {
+	// 在程序启动时初始化时区
+	var err error
+	if cstLoc, err = time.LoadLocation("Asia/Shanghai"); err != nil {
+		log.Fatalf("[启动失败] 加载时区失败: %v", err)
+	}
+}
+
+func loggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		lw := &loggingResponseWriter{ResponseWriter: w, statusCode: http.StatusOK}
@@ -38,8 +28,8 @@ func loggingMiddleware(next http.Handler) http.Handler {
 			duration := time.Since(start)
 			clientIP := getClientIP(r)
 			
-			// 使用In()方法转换时区
-			timestamp := time.Now().In(loc).Format("02/Jan/2006:15:04:05 -0700")
+			// 使用请求到达时间而非记录时间（更准确）
+			timestamp := start.In(cstLoc).Format("02/Jan/2006:15:04:05 -0700")
 			
 			log.Printf(`%s - - [%s] "%s %s %s" %d %d`,
 				clientIP,
@@ -55,7 +45,21 @@ func loggingMiddleware(next http.Handler) http.Handler {
 		next.ServeHTTP(lw, r)
 	})
 }
-
+// 自定义ResponseWriter用于捕获状态码
+type loggingResponseWriter struct {
+	http.ResponseWriter
+	statusCode int
+}
+func (lw *loggingResponseWriter) WriteHeader(code int) {
+	lw.statusCode = code
+	lw.ResponseWriter.WriteHeader(code)
+}
+func main() {
+	addr := ":18125"
+	log.Printf("Starting server on %s", addr)
+	http.Handle("/", loggingMiddleware(http.HandlerFunc(getIPHandler)))
+	log.Fatal(http.ListenAndServe(addr, nil))
+}
 func getIPHandler(w http.ResponseWriter, r *http.Request) {
 	// 获取客户端IP地址
 	ip := getClientIP(r)
