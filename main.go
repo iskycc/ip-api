@@ -1,15 +1,49 @@
 package main
-
 import (
 	"encoding/json"
+	"log"
 	"net"
 	"net/http"
 	"strings"
+	"time"
 )
-
+// 自定义ResponseWriter用于捕获状态码
+type loggingResponseWriter struct {
+	http.ResponseWriter
+	statusCode int
+}
+func (lw *loggingResponseWriter) WriteHeader(code int) {
+	lw.statusCode = code
+	lw.ResponseWriter.WriteHeader(code)
+}
 func main() {
-	http.HandleFunc("/", getIPHandler)
-	http.ListenAndServe(":18125", nil)
+	addr := ":18125"
+	log.Printf("Starting server on %s", addr)
+	http.Handle("/", loggingMiddleware(http.HandlerFunc(getIPHandler)))
+	log.Fatal(http.ListenAndServe(addr, nil))
+}
+// 日志中间件
+func loggingMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		lw := &loggingResponseWriter{ResponseWriter: w, statusCode: http.StatusOK}
+		defer func() {
+			duration := time.Since(start)
+			clientIP := getClientIP(r)
+			timestamp := time.Now().Format("02/Jan/2006:15:04:05 -0700")
+			
+			log.Printf(`%s - - [%s] "%s %s %s" %d %d`,
+				clientIP,
+				timestamp,
+				r.Method,
+				r.URL.RequestURI(),
+				r.Proto,
+				lw.statusCode,
+				duration.Microseconds(),
+			)
+		}()
+		next.ServeHTTP(lw, r)
+	})
 }
 
 func getIPHandler(w http.ResponseWriter, r *http.Request) {
