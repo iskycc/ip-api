@@ -7,21 +7,25 @@ import (
 	"strings"
 	"time"
 )
+
 // 自定义ResponseWriter用于捕获状态码
 type loggingResponseWriter struct {
 	http.ResponseWriter
 	statusCode int
 }
+
 func (lw *loggingResponseWriter) WriteHeader(code int) {
 	lw.statusCode = code
 	lw.ResponseWriter.WriteHeader(code)
 }
+
 func main() {
 	addr := ":18125"
 	log.Printf("Starting server on %s", addr)
 	http.Handle("/", loggingMiddleware(http.HandlerFunc(getIPHandler)))
 	log.Fatal(http.ListenAndServe(addr, nil))
 }
+
 func getIPHandler(w http.ResponseWriter, r *http.Request) {
 	// 获取客户端IP地址
 	ip := getClientIP(r)
@@ -48,6 +52,7 @@ func getIPHandler(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(ip))
 	}
 }
+
 // 日志中间件
 func loggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
